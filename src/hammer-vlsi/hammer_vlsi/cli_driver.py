@@ -80,6 +80,8 @@ class CLIDriver:
         # Defaults to blank (obj_dir + syn-rundir/par-rundir)
         self.syn_rundir = ""  # type: Optional[str]
         self.par_rundir = ""  # type: Optional[str]
+        self.drc_rundir = ""  # type: Optional[str]
+        self.lvs_rundir = ""  # type: Optional[str]
 
         # If a subclass has defined these, don't clobber them in init
         # since the subclass still uses this init function.
@@ -91,6 +93,14 @@ class CLIDriver:
             check_CLIActionType_type(self.par_action)  # type: ignore
         else:
             self.par_action = self.create_par_action([])  # type: CLIActionType
+        if hasattr(self, "drc_action"):
+            check_CLIActionType_type(self.drc_action)  # type: ignore
+        else:
+            self.drc_action = self.create_drc_action([])  # type: CLIActionType
+        if hasattr(self, "lvs_action"):
+            check_CLIActionType_type(self.lvs_action)  # type: ignore
+        else:
+            self.lvs_action = self.create_lvs_action([])  # type: CLIActionType
         if hasattr(self, "synthesis_par_action"):
             check_CLIActionType_type(self.synthesis_par_action)  # type: ignore
         else:
@@ -101,6 +111,8 @@ class CLIDriver:
         self.hierarchical_synthesis_actions = {}  # type: Dict[str, CLIActionType]
         self.hierarchical_par_actions = {}  # type: Dict[str, CLIActionType]
         self.hierarchical_synthesis_par_actions = {}  # type: Dict[str, CLIActionType]
+        self.hierarchical_drc_actions = {} # type: Dict[str, CLIActionType]
+        self.hierarchical_lvs_actions = {} # type: Dict[str, CLIActionType]
         self.hierarchical_auto_action = None  # type: Optional[CLIActionType]
 
     def action_map(self) -> Dict[str, CLIActionType]:
@@ -116,7 +128,9 @@ class CLIDriver:
             "synthesis_par": self.synthesis_par_action,
             "synthesis-par": self.synthesis_par_action,
             "syn_par": self.synthesis_par_action,
-            "syn-par": self.synthesis_par_action
+            "syn-par": self.synthesis_par_action,
+            "drc": self.drc_action,
+            "lvs": self.lvs_action
         }, self.all_hierarchical_actions)
 
     def get_extra_synthesis_hooks(self) -> List[HammerToolHookAction]:
@@ -129,6 +143,20 @@ class CLIDriver:
     def get_extra_par_hooks(self) -> List[HammerToolHookAction]:
         """
         Return a list of extra place and route hooks in this project.
+        To be overridden by subclasses.
+        """
+        return list()
+
+    def get_extra_drc_hooks(self) -> List[HammerToolHookAction]:
+        """
+        Return a list of extra design-rule-check hooks in this project.
+        To be overridden by subclasses.
+        """
+        return list()
+
+    def get_extra_lvs_hooks(self) -> List[HammerToolHookAction]:
+        """
+        Return a list of extra layout-vs-schematic hooks in this project.
         To be overridden by subclasses.
         """
         return list()
@@ -148,6 +176,22 @@ class CLIDriver:
                           post_run_func: Optional[Callable[[HammerDriver], None]] = None) -> CLIActionType:
         hooks = self.get_extra_par_hooks() + custom_hooks  # type: List[HammerToolHookAction]
         return self.create_action("par", hooks if len(hooks) > 0 else None,
+                                  pre_action_func, post_load_func, post_run_func)
+
+    def create_drc_action(self, custom_hooks: List[HammerToolHookAction],
+                          pre_action_func: Optional[Callable[[HammerDriver], None]] = None,
+                          post_load_func: Optional[Callable[[HammerDriver], None]] = None,
+                          post_run_func: Optional[Callable[[HammerDriver], None]] = None) -> CLIActionType:
+        hooks = self.get_extra_drc_hooks() + custom_hooks  # type: List[HammerToolHookAction]
+        return self.create_action("drc", hooks if len(hooks) > 0 else None,
+                                  pre_action_func, post_load_func, post_run_func)
+
+    def create_lvs_action(self, custom_hooks: List[HammerToolHookAction],
+                          pre_action_func: Optional[Callable[[HammerDriver], None]] = None,
+                          post_load_func: Optional[Callable[[HammerDriver], None]] = None,
+                          post_run_func: Optional[Callable[[HammerDriver], None]] = None) -> CLIActionType:
+        hooks = self.get_extra_lvs_hooks() + custom_hooks  # type: List[HammerToolHookAction]
+        return self.create_action("lvs", hooks if len(hooks) > 0 else None,
                                   pre_action_func, post_load_func, post_run_func)
 
     def create_action(self, action_type: str,
@@ -195,6 +239,21 @@ class CLIDriver:
                     post_load_func_checked(driver)
                 success, output = driver.run_par(extra_hooks)
                 post_run_func_checked(driver)
+            elif action_type == "drc":
+                if not driver.load_drc_tool(get_or_else(self.drc_rundir, "")):
+                    return None
+                else:
+                    post_load_func_checked(driver)
+                success, output = driver.run_drc(extra_hooks)
+                post_run_func_checked(driver)
+            elif action_type == "lvs":
+                if not driver.load_lvs_tool(get_or_else(self.lvs_rundir, "")):
+                    return None
+                else:
+                    post_load_func_checked(driver)
+                success, output = driver.run_lvs(extra_hooks)
+                post_run_func_checked(driver)
+
             else:
                 raise ValueError("Invalid action_type = " + str(action_type))
             # TODO: detect errors
@@ -280,6 +339,18 @@ class CLIDriver:
                 "syn_par_{block}"
             ], module, action)
 
+        for module, action in self.hierarchical_drc_actions.items():
+            add_variants([
+                "drc-{block}",
+                "drc_{block}"
+            ], module, action)
+
+        for module, action in self.hierarchical_lvs_actions.items():
+            add_variants([
+                "lvs-{block}",
+                "lvs_{block}"
+            ], module, action)
+
         return actions
 
     def get_extra_hierarchical_synthesis_hooks(self) -> Dict[str, List[HammerToolHookAction]]:
@@ -325,6 +396,30 @@ class CLIDriver:
         Set the action associated with hierarchical par for the given module (in hierarchical flows).
         """
         self.hierarchical_par_actions[module] = action
+
+    def set_hierarchical_drc_action(self, module: str, action: CLIActionType) -> None:
+        """
+        Set the action associated with hierarchical drc for the given module (in hierarchical flows).
+        """
+        self.hierarchical_drc_actions[module] = action
+
+    def get_hierarchical_drc_action(self, module: str) -> CLIActionType:
+        """
+        Get the action associated with hierarchical drc for the given module (in hierarchical flows).
+        """
+        return self.hierarchical_drc_actions[module]
+
+    def set_hierarchical_lvs_action(self, module: str, action: CLIActionType) -> None:
+        """
+        Set the action associated with hierarchical lvs for the given module (in hierarchical flows).
+        """
+        self.hierarchical_lvs_actions[module] = action
+
+    def get_hierarchical_lvs_action(self, module: str) -> CLIActionType:
+        """
+        Get the action associated with hierarchical lvs for the given module (in hierarchical flows).
+        """
+        return self.hierarchical_lvs_actions[module]
 
     def get_hierarchical_synthesis_par_action(self, module: str) -> CLIActionType:
         """
@@ -416,6 +511,8 @@ class CLIDriver:
         # Syn/par rundir (optional)
         self.syn_rundir = get_nonempty_str(args['syn_rundir'])
         self.par_rundir = get_nonempty_str(args['par_rundir'])
+        self.drc_rundir = get_nonempty_str(args['drc_rundir'])
+        self.lvs_rundir = get_nonempty_str(args['lvs_rundir'])
 
         # Stage control: from/to
         from_step = get_nonempty_str(args['from_step'])

@@ -330,6 +330,126 @@ class HammerPlaceAndRouteTool(HammerTool):
             raise TypeError("output_ilms must be a List[ILMStruct]")
         self.attr_setter("_output_ilms", value)
 
+class HammerSignoffTool(HammerTool):
+    @abstractmethod:
+    def fill_outputs(self) -> bool:
+        pass
+
+    ### Inputs ###
+
+    @property
+    def top_module(self) -> str:
+        """
+        Get the top-level module.
+
+        :return: The top-level module.
+        """
+        try:
+            return self.attr_getter("_top_module", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the top-level module yet")
+
+    @top_module.setter
+    def top_module(self, value: str) -> None:
+        """Set the top-level module."""
+        if not (isinstance(value, str)):
+            raise TypeError("top_module must be a str")
+        self.attr_setter("_top_module", value)
+
+    ### Outputs ###
+    @abstractmethod:
+    def signoff_results(self) -> bool:
+        """ Return true if this signoff test passes, otherwise false """
+        pass
+
+
+
+class HammerDRCTool(HammerSignoffTool):
+    @abstractmethod:
+    def fill_outputs(self) -> bool:
+        pass
+
+    ### Inputs ###
+
+    @property
+    def input_layout(self) -> str:
+        """
+        Get the input layout file (e.g. *.gds)
+
+        :return: The input layout file (e.g. *.gds)
+        """
+        try:
+            return self.attr_getter("_layout_file", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the input layout file (e.g. *.gds) yet")
+
+    @layout_file.setter
+    def layout_file(self, value: str) -> None:
+        """ Set the input layout file (e.g. *.gds)"""
+        if not (isinstance(value, str)):
+            raise TypeError("layout_file must be a str")
+        self.attr_setter("_layout_file", value)
+
+    ### Outputs ###
+
+    def signoff_results(self) -> bool:
+        """ Return true if all DRC checks pass (or are waived), otherwise false """
+        # [jcw] TODO
+        return false
+
+
+class HammerLVSTool(HammerSignoffTool):
+    @abstractmethod:
+    def fill_outputs(self) -> bool:
+        pass
+
+    ### Inputs ###
+
+    @property
+    def input_layout(self) -> str:
+        """
+        Get the input layout file (e.g. *.gds)
+
+        :return: The input layout file (e.g. *.gds)
+        """
+        try:
+            return self.attr_getter("_layout_file", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the input layout file (e.g. *.gds) yet")
+
+    @layout_file.setter
+    def layout_file(self, value: str) -> None:
+        """ Set the input layout file (e.g. *.gds)"""
+        if not (isinstance(value, str)):
+            raise TypeError("layout_file must be a str")
+        self.attr_setter("_layout_file", value)
+
+    @property
+    def schematic_files(self) -> List[str]:
+        """
+        Get the collection of schematic files (e.g. *.v or *.sp).
+
+        :return: The collection of schematic files (e.g. *.v or *.sp).
+        """
+        try:
+            return self.attr_getter("_schematic_files", None)
+        except AttributeError:
+            raise ValueError("Nothing set for the collection of schematic files (e.g. *.v or *.sp) yet")
+
+    @schematic_files.setter
+    def schematic_files(self, value: List[str]) -> None:
+        """Set the collection of schematic files (e.g. *.v or *.sp)."""
+        if not (isinstance(value, List)):
+            raise TypeError("schematic_files must be a List[str]")
+        self.attr_setter("_schematic_files", value)
+
+    ### Outputs ###
+
+    def signoff_results(self) -> bool:
+        """ Return true if LVS passes, otherwise false """
+        # [jcw] TODO
+        return false
+
 
 class HasSDCSupport(HammerTool):
     """Mix-in trait with functions useful for tools with SDC-style

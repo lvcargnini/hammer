@@ -18,6 +18,7 @@ import hammer_config
 import hammer_tech
 from .hooks import HammerToolHookAction
 from .hammer_vlsi_impl import HammerVLSISettings, HammerPlaceAndRouteTool, HammerSynthesisTool, \
+    HammerSignoffTool, HammerDRCTool, HammerLVSTool, \
     HierarchicalMode, load_tool, PlacementConstraint
 from hammer_logging import HammerVLSIFileLogger, HammerVLSILogging, HammerVLSILoggingContext
 
@@ -104,10 +105,14 @@ class HammerDriver:
         # Initialize tool fields.
         self.syn_tool = None  # type: Optional[HammerSynthesisTool]
         self.par_tool = None  # type: Optional[HammerPlaceAndRouteTool]
+        self.drc_tool = None  # type: Optional[HammerDRCTool]
+        self.lvs_tool = None  # type: Optional[HammerLVSTool]
 
         # Initialize tool hooks. Used to specify resume/pause hooks after custom hooks have been registered.
         self.post_custom_syn_tool_hooks = []  # type: List[HammerToolHookAction]
         self.post_custom_par_tool_hooks = []  # type: List[HammerToolHookAction]
+        self.post_custom_drc_tool_hooks = []  # type: List[HammerToolHookAction]
+        self.post_custom_lvs_tool_hooks = []  # type: List[HammerToolHookAction]
 
     @property
     def project_config(self) -> dict:
@@ -246,6 +251,99 @@ class HammerDriver:
         self.update_tool_configs()
         return True
 
+    def load_drc_tool(self, run_dir: str = "") -> bool:
+        """
+        Loads a DRC tool on a given database
+
+        :param run_dir: Directory to use for the tool run_dir. Defaults to the run_dir passed in the HammerDriver
+                        constructor.
+        :return: True if DRC tool loading was successful, False otherwise.
+        """
+        if self.tech is None:
+            self.log.error("Must load technology before loading DRC tool")
+            return False
+
+        if run_dir == "":
+            run_dir = os.path.join(self.obj_dir, "drc-rundir")
+
+        drc_tool_name = self.database.get_setting("vlsi.core.drc_tool")
+        drc_tool_get = load_tool(
+            path=self.database.get_setting("vlsi.core.drc_tool_path"),
+            tool_name=drc_tool_name
+        )
+        assert isinstance(drc_tool_get, HammerDRCTool), "DRC tool must be a HammerDRCTool"
+        drc_tool = drc_tool_get # type: HammerDRCTool
+        drc_tool.name = drc_tool_name
+        drc_tool.logger = self.log.context("drc")
+        drc_tool.set_database(self.database)
+        drc_tool.run_dir = run_dir
+        # TODO hierarchical
+
+        drc_tool.input_files = self.database.get_setting("drc.inputs.input_files")
+        drc_tool.top_module = self.database.get_setting("drc.inputs.top_module", nullvalue="")
+        missing_inputs = False
+        if drc_tool.top_module = "":
+            self.log.error("Top module not specified for DRC")
+            missing_inputs = True
+        if len(drc_tool.input_files) == 0:
+            self.log.error("No input files specified for DRC")
+            missing_inputs = True
+        if missing_inputs:
+            return False
+
+        self.drc_tool = drc_tool
+
+        self.tool_configs["drc"] = drc_tool.get_config()
+        self.update_tool_configs()
+        return True
+
+
+    def load_lvs_tool(self, run_dir: str = "") -> bool:
+        """
+        Loads an LVS tool on a given database
+
+        :param run_dir: Directory to use for the tool run_dir. Defaults to the run_dir passed in the HammerDriver
+                        constructor.
+        :return: True if LVS tool loading was successful, False otherwise.
+        """
+        if self.tech is None:
+            self.log.error("Must load technology before loading LVS tool")
+            return False
+
+        if run_dir == "":
+            run_dir = os.path.join(self.obj_dir, "lvs-rundir")
+
+        lvs_tool_name = self.database.get_setting("vlsi.core.lvs_tool")
+        lvs_tool_get = load_tool(
+            path=self.database.get_setting("vlsi.core.lvs_tool_path"),
+            tool_name=lvs_tool_name
+        )
+        assert isinstance(lvs_tool_get, HammerLVSTool), "LVS tool must be a HammerLVSTool"
+        lvs_tool = lvs_tool_get # type: HammerLVSTool
+        lvs_tool.name = lvs_tool_name
+        lvs_tool.logger = self.log.context("lvs")
+        lvs_tool.set_database(self.database)
+        lvs_tool.run_dir = run_dir
+        # TODO hierarchical
+
+        lvs_tool.input_files = self.database.get_setting("lvs.inputs.input_files")
+        lvs_tool.top_module = self.database.get_setting("lvs.inputs.top_module", nullvalue="")
+        missing_inputs = False
+        if lvs_tool.top_module = "":
+            self.log.error("Top module not specified for LVS")
+            missing_inputs = True
+        if len(lvs_tool.input_files) == 0:
+            self.log.error("No input files specified for LVS")
+            missing_inputs = True
+        if missing_inputs:
+            return False
+
+        self.lvs_tool = lvs_tool
+
+        self.tool_configs["lvs"] = lvs_tool.get_config()
+        self.update_tool_configs()
+        return True
+
     def set_post_custom_syn_tool_hooks(self, hooks: List[HammerToolHookAction]) -> None:
         """
         Set the extra list of hooks used for control flow (resume/pause) in run_synthesis.
@@ -263,6 +361,24 @@ class HammerDriver:
         :param hooks: Hooks to run
         """
         self.post_custom_par_tool_hooks = list(hooks)
+
+    def set_post_custom_drc_tool_hooks(self, hooks: List[HammerToolHookAction]) -> None:
+        """
+        Set the extra list of hooks used for control flow (resume/pause) in run_drc.
+        They will run after main/hook_actions.
+
+        :param hooks: Hooks to run
+        """
+        self.post_custom_drc_tool_hooks = list(hooks)
+
+    def set_post_custom_lvs_tool_hooks(self, hooks: List[HammerToolHookAction]) -> None:
+        """
+        Set the extra list of hooks used for control flow (resume/pause) in run_lvs.
+        They will run after main/hook_actions.
+
+        :param hooks: Hooks to run
+        """
+        self.post_custom_lvs_tool_hooks = list(hooks)
 
     def run_synthesis(self, hook_actions: Optional[List[HammerToolHookAction]] = None, force_override: bool = False) -> \
             Tuple[bool, dict]:
@@ -345,6 +461,77 @@ class HammerDriver:
         # TODO(edwardw): automate this
         try:
             output_config.update(self.par_tool.export_config_outputs())
+        except ValueError as e:
+            self.log.fatal(e.args[0])
+            return False, {}
+
+        return run_succeeded, output_config
+
+    def run_drc(self, hook_actions: Optional[List[HammerToolHookAction]] = None, force_override: bool = False) -> Tuple[
+        bool, dict]:
+        """
+        Run DRC on a given database.
+        TODO fill me in
+        """
+        if self.drc_tool is None:
+            self.log.error("Must load DRC tool before calling run_drc")
+            return False, {}
+
+        self.log.info("Starting DRC check with tool '%s'" % (self.drc_tool.name))
+
+        if hook_actions is None:
+            hooks_to_use = self.post_custom_drc_tool_hooks
+        elif force_override:
+            hooks_to_use = hook_actions
+        else:
+            hooks_to_use = hook_actions + self.post_custom_formal_tool_hooks
+
+        run_succeeded = self.drc_tool.run(hooks_to_use)
+        if not run_succeeded:
+            self.log.error("DRC tool %s failed! Please check its output." % self.drc_tool.name)
+            # Allow the flow to keep running, just in case
+
+        # Record output from the drc_tool into the JSON output
+        # John: Do we need this??
+        output_config = deepdict(self.project_config)
+        try:
+            output_config.update(self.drc_tool.export_config_outputs())
+        except ValueError as e:
+            self.log.fatal(e.args[0])
+            return False, {}
+
+        return run_succeeded, output_config
+
+
+    def run_lvs(self, hook_actions: Optional[List[HammerToolHookAction]] = None, force_override: bool = False) -> Tuple[
+        bool, dict]:
+        """
+        Run LVS on a given database.
+        TODO fill me in
+        """
+        if self.lvs_tool is None:
+            self.log.error("Must load LVS tool before calling run_lvs")
+            return False, {}
+
+        self.log.info("Starting LVS check with tool '%s'" % (self.lvs_tool.name))
+
+        if hook_actions is None:
+            hooks_to_use = self.post_custom_lvs_tool_hooks
+        elif force_override:
+            hooks_to_use = hook_actions
+        else:
+            hooks_to_use = hook_actions + self.post_custom_formal_tool_hooks
+
+        run_succeeded = self.lvs_tool.run(hooks_to_use)
+        if not run_succeeded:
+            self.log.error("LVS tool %s failed! Please check its output." % self.lvs_tool.name)
+            # Allow the flow to keep running, just in case
+
+        # Record output from the lvs_tool into the JSON output
+        # John: Do we need this??
+        output_config = deepdict(self.project_config)
+        try:
+            output_config.update(self.lvs_tool.export_config_outputs())
         except ValueError as e:
             self.log.fatal(e.args[0])
             return False, {}
