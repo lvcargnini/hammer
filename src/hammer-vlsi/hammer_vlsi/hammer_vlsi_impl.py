@@ -358,11 +358,9 @@ class HammerSignoffTool(HammerTool):
 
     ### Outputs ###
     @abstractmethod:
-    def signoff_results(self) -> bool:
-        """ Return true if this signoff test passes, otherwise false """
+    def signoff_results(self) -> int:
+        """ Return the number of issues raised by the signoff tool (0 = all checks pass) """
         pass
-
-
 
 class HammerDRCTool(HammerSignoffTool):
     @abstractmethod:
@@ -370,6 +368,17 @@ class HammerDRCTool(HammerSignoffTool):
         pass
 
     ### Inputs ###
+
+    @abstractmethod:
+    def waived_drc_rules(self) -> List[str]:
+        # TODO [John] how to waive specific instances of DRC rules, rather than blanket waivers
+        # TODO [John] should this go in the YAML file?
+        """
+        Get the list of waived DRC rule names.
+
+        :return: The list of waived DRC rule names.
+        """
+        pass
 
     @property
     def input_layout(self) -> str:
@@ -392,10 +401,18 @@ class HammerDRCTool(HammerSignoffTool):
 
     ### Outputs ###
 
-    def signoff_results(self) -> bool:
-        """ Return true if all DRC checks pass (or are waived), otherwise false """
-        # [jcw] TODO
-        return false
+    @abstractmethod:
+    def drc_results_pre_waived(self) -> Dict[str, int]:
+        """ Return a Dict mapping the DRC check name to an error count (pre-waivers). """
+        pass
+
+    def signoff_results(self) -> int:
+        """ Return the count of unwaived DRC errors. """
+        return reduce(lambda a, b: a + b, self.drc_results().values())
+
+    def drc_results(self) -> Dict[str, int]:
+        """ Return a Dict mapping the DRC check name to an error count (with waivers). """
+        return {k: 0 if k in self.waived_drc_rules() else v for k, v in self.drc_results_pre_waived()}
 
 
 class HammerLVSTool(HammerSignoffTool):
@@ -404,6 +421,17 @@ class HammerLVSTool(HammerSignoffTool):
         pass
 
     ### Inputs ###
+
+    @abstractmethod:
+    def waived_erc_rules(self) -> List[str]:
+        # TODO [John] how to waive specific instances of ERC rules, rather than blanket waivers
+        # TODO [John] should this go in the YAML file?
+        """
+        Get the list of waived ERC rule names.
+
+        :return: The list of waived ERC rule names.
+        """
+        pass
 
     @property
     def input_layout(self) -> str:
@@ -445,10 +473,23 @@ class HammerLVSTool(HammerSignoffTool):
 
     ### Outputs ###
 
-    def signoff_results(self) -> bool:
-        """ Return true if LVS passes, otherwise false """
-        # [jcw] TODO
-        return false
+    @abstractmethod:
+    def erc_results_pre_waived(self) -> Dict[str, int]:
+        """ Return a Dict mapping the ERC check name to an error count (pre-waivers). """
+        pass
+
+    def signoff_results(self) -> int:
+        """ Return the count of unwaived ERC errors and LVS errors. """
+        return reduce(lambda a, b: a + b, self.erc_results().values()) + len(self.lvs_results())
+
+    def erc_results(self) -> Dict[str, int]:
+        """ Return a Dict mapping the ERC check name to an error count (with waivers). """
+        return {k: 0 if k in self.waived_erc_rules() else v for k, v in self.erc_results_pre_waived()}
+
+    @abstractmethod:
+    def lvs_results(self) -> List[str]:
+        """ Return the LVS issue descriptions for each issue. An empty list means LVS passes. """
+        pass
 
 
 class HasSDCSupport(HammerTool):
@@ -767,6 +808,35 @@ class SynopsysTool(HasSDCSupport, HammerTool):
             raise FileNotFoundError("Expected reference methodology tarball not found at %s. Use the Synopsys RM generator <https://solvnet.synopsys.com/rmgen> to generate a DC reference methodology. If these tarballs have been pre-downloaded, you can set synopsys.rm_dir instead of generating them yourself." % (synopsys_rm_tarball))
         else:
             return synopsys_rm_tarball
+
+class MentorTool(HammerTool):
+    """ Mix-in trait with functions useful for Mentor-Graphics-based tools. """
+    @property
+    def env_vars(self) -> Dict[str, str]:
+        """
+        Get the list of environment variables required for this tool.
+        Note to subclasses: remember to include variables from super().env_vars!
+        """
+        return {
+            "MGLS_LICENSE_FILE": self.get_setting("mentor.MGLS_LICENSE_FILE")
+        }
+
+    def version_number(self, version: str) -> int:
+        """
+        Assumes versions look like NAME-YYYY.MM-SPMINOR.
+        Assumes less than 100 minor versions.
+        """
+        return 0 # TODO john
+
+class MentorCalibreTool(MentorTool):
+    """ Mix-in trait for Mentor's Calibre tool suite. """
+    @property
+    def env_vars(self) -> Dict[str, str]:
+        """
+        Get the list of environment variables required for this tool.
+        Note to subclasses: remember to include variables from super().env_vars!
+        """
+        return super().env_vars
 
 def load_tool(tool_name: str, path: Iterable[str]) -> HammerTool:
     """
