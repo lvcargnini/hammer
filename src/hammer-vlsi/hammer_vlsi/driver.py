@@ -285,8 +285,8 @@ class HammerDriver:
         if drc_tool.top_module == "":
             self.log.error("Top module not specified for DRC")
             missing_inputs = True
-        if len(drc_tool.input_files) == 0:
-            self.log.error("No input files specified for DRC")
+        if drc_tool.layout_file is not None:
+            self.log.error("No layout file specified for DRC")
             missing_inputs = True
         if missing_inputs:
             return False
@@ -332,8 +332,11 @@ class HammerDriver:
         if lvs_tool.top_module == "":
             self.log.error("Top module not specified for LVS")
             missing_inputs = True
-        if len(lvs_tool.input_files) == 0:
-            self.log.error("No input files specified for LVS")
+        if lvs_tool.layout_file is not None:
+            self.log.error("No layout file specified for LVS")
+            missing_inputs = True
+        if len(lvs_tool.schematic_files) == 0:
+            self.log.error("No schematic files specified for LVS")
             missing_inputs = True
         if missing_inputs:
             return False
@@ -484,7 +487,7 @@ class HammerDriver:
         elif force_override:
             hooks_to_use = hook_actions
         else:
-            hooks_to_use = hook_actions + self.post_custom_formal_tool_hooks
+            hooks_to_use = hook_actions + self.post_custom_drc_tool_hooks
 
         run_succeeded = self.drc_tool.run(hooks_to_use)
         if not run_succeeded:
@@ -520,7 +523,7 @@ class HammerDriver:
         elif force_override:
             hooks_to_use = hook_actions
         else:
-            hooks_to_use = hook_actions + self.post_custom_formal_tool_hooks
+            hooks_to_use = hook_actions + self.post_custom_lvs_tool_hooks
 
         run_succeeded = self.lvs_tool.run(hooks_to_use)
         if not run_succeeded:

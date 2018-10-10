@@ -686,6 +686,10 @@ class CLIDriver:
                             help='(optional) Directory to store syn results in')
         parser.add_argument("--par_rundir", required=False, default="",
                             help='(optional) Directory to store par results in')
+        parser.add_argument("--drc_rundir", required=False, default="",
+                            help='(optional) Directory to store DRC results in')
+        parser.add_argument("--lvs_rundir", required=False, default="",
+                            help='(optional) Directory to store LVS results in')
         # Optional arguments for step control.
         parser.add_argument("--from_step", dest="from_step", required=False,
                             help="Run the given action from the given step (inclusive).")

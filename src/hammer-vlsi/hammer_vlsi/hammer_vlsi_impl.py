@@ -413,7 +413,7 @@ class HammerDRCTool(HammerSignoffTool):
 
     def drc_results(self) -> Dict[str, int]:
         """ Return a Dict mapping the DRC check name to an error count (with waivers). """
-        return {k: 0 if k in self.waived_drc_rules() else v for k, v in self.drc_results_pre_waived()}
+        return {k: 0 if k in self.waived_drc_rules() else int(v) for k, v in self.drc_results_pre_waived()}
 
 
 class HammerLVSTool(HammerSignoffTool):
@@ -485,7 +485,7 @@ class HammerLVSTool(HammerSignoffTool):
 
     def erc_results(self) -> Dict[str, int]:
         """ Return a Dict mapping the ERC check name to an error count (with waivers). """
-        return {k: 0 if k in self.waived_erc_rules() else v for k, v in self.erc_results_pre_waived()}
+        return {k: 0 if k in self.waived_erc_rules() else int(v) for k, v in self.erc_results_pre_waived()}
 
     @abstractmethod
     def lvs_results(self) -> List[str]:
