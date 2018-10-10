@@ -282,7 +282,7 @@ class HammerDriver:
         drc_tool.input_files = self.database.get_setting("drc.inputs.input_files")
         drc_tool.top_module = self.database.get_setting("drc.inputs.top_module", nullvalue="")
         missing_inputs = False
-        if drc_tool.top_module = "":
+        if drc_tool.top_module == "":
             self.log.error("Top module not specified for DRC")
             missing_inputs = True
         if len(drc_tool.input_files) == 0:
@@ -329,7 +329,7 @@ class HammerDriver:
         lvs_tool.input_files = self.database.get_setting("lvs.inputs.input_files")
         lvs_tool.top_module = self.database.get_setting("lvs.inputs.top_module", nullvalue="")
         missing_inputs = False
-        if lvs_tool.top_module = "":
+        if lvs_tool.top_module == "":
             self.log.error("Top module not specified for LVS")
             missing_inputs = True
         if len(lvs_tool.input_files) == 0:

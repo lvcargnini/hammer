@@ -331,7 +331,7 @@ class HammerPlaceAndRouteTool(HammerTool):
         self.attr_setter("_output_ilms", value)
 
 class HammerSignoffTool(HammerTool):
-    @abstractmethod:
+    @abstractmethod
     def fill_outputs(self) -> bool:
         pass
 
@@ -357,19 +357,20 @@ class HammerSignoffTool(HammerTool):
         self.attr_setter("_top_module", value)
 
     ### Outputs ###
-    @abstractmethod:
+    @abstractmethod
     def signoff_results(self) -> int:
         """ Return the number of issues raised by the signoff tool (0 = all checks pass) """
         pass
 
 class HammerDRCTool(HammerSignoffTool):
-    @abstractmethod:
+
+    @abstractmethod
     def fill_outputs(self) -> bool:
         pass
 
     ### Inputs ###
 
-    @abstractmethod:
+    @abstractmethod
     def waived_drc_rules(self) -> List[str]:
         # TODO [John] how to waive specific instances of DRC rules, rather than blanket waivers
         # TODO [John] should this go in the YAML file?
@@ -381,7 +382,7 @@ class HammerDRCTool(HammerSignoffTool):
         pass
 
     @property
-    def input_layout(self) -> str:
+    def layout_file(self) -> str:
         """
         Get the input layout file (e.g. *.gds)
 
@@ -401,7 +402,7 @@ class HammerDRCTool(HammerSignoffTool):
 
     ### Outputs ###
 
-    @abstractmethod:
+    @abstractmethod
     def drc_results_pre_waived(self) -> Dict[str, int]:
         """ Return a Dict mapping the DRC check name to an error count (pre-waivers). """
         pass
@@ -416,13 +417,13 @@ class HammerDRCTool(HammerSignoffTool):
 
 
 class HammerLVSTool(HammerSignoffTool):
-    @abstractmethod:
+    @abstractmethod
     def fill_outputs(self) -> bool:
         pass
 
     ### Inputs ###
 
-    @abstractmethod:
+    @abstractmethod
     def waived_erc_rules(self) -> List[str]:
         # TODO [John] how to waive specific instances of ERC rules, rather than blanket waivers
         # TODO [John] should this go in the YAML file?
@@ -434,7 +435,7 @@ class HammerLVSTool(HammerSignoffTool):
         pass
 
     @property
-    def input_layout(self) -> str:
+    def layout_file(self) -> str:
         """
         Get the input layout file (e.g. *.gds)
 
@@ -473,7 +474,7 @@ class HammerLVSTool(HammerSignoffTool):
 
     ### Outputs ###
 
-    @abstractmethod:
+    @abstractmethod
     def erc_results_pre_waived(self) -> Dict[str, int]:
         """ Return a Dict mapping the ERC check name to an error count (pre-waivers). """
         pass
@@ -486,7 +487,7 @@ class HammerLVSTool(HammerSignoffTool):
         """ Return a Dict mapping the ERC check name to an error count (with waivers). """
         return {k: 0 if k in self.waived_erc_rules() else v for k, v in self.erc_results_pre_waived()}
 
-    @abstractmethod:
+    @abstractmethod
     def lvs_results(self) -> List[str]:
         """ Return the LVS issue descriptions for each issue. An empty list means LVS passes. """
         pass
