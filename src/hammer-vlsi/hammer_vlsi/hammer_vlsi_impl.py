@@ -818,9 +818,11 @@ class MentorTool(HammerTool):
         Get the list of environment variables required for this tool.
         Note to subclasses: remember to include variables from super().env_vars!
         """
-        return {
+        result = dict(super().env_vars)
+        result.update({
             "MGLS_LICENSE_FILE": self.get_setting("mentor.MGLS_LICENSE_FILE")
-        }
+        })
+        return result
 
     def version_number(self, version: str) -> int:
         """
